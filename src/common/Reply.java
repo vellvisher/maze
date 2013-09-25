@@ -1,36 +1,40 @@
 package common;
 
 import common.Player;
+
+import java.io.Serializable;
+import java.util.Collection;
 import java.util.List;
 
-public class Reply {
-	private int[][] treasures;
+public class Reply implements Serializable {
+	private static final long serialVersionUID = 175422823511136942L;
+	private Location[][] maze;
 	private Player player;
 	private List<Player> players;
 	private Status status;
 
 	public enum Status {
-		MOVE_SUCCESSFUL, PLAYER_BLOCKING, OUT_OF_BOUNDS, JOIN_SUCCESSFUL, JOIN_UNSUCCESSFUL
-	};
-
-	public enum Direction {
-		N, S, W, E, NoMove;
+		MOVE_SUCCESSFUL, PLAYER_BLOCKING, OUT_OF_BOUNDS, JOIN_SUCCESSFUL, JOIN_UNSUCCESSFUL, INVALID_MOVE
 	}
 
-	public Reply(int[][] treasures, Player player, List<Player> players,
-			Status status) {
-		this.treasures = treasures;
+	public enum Direction {
+		N, S, W, E, NoMove
+	}
+
+	public Reply(Location[][] maze, Player player,
+			List<Player> players, Status status) {
+		this.maze = maze;
 		this.player = player;
 		this.players = players;
 		this.status = status;
 	}
 
-	public int[][] getTreasures() {
-		return treasures;
+	public Location[][] getMaze() {
+		return maze;
 	}
 
-	public void setTreasures(int[][] treasures) {
-		this.treasures = treasures;
+	public void setMaze(Location[][] maze) {
+		this.maze = maze;
 	}
 
 	public Player getPlayer() {
@@ -41,7 +45,7 @@ public class Reply {
 		this.player = player;
 	}
 
-	public List<Player> getPlayers() {
+	public Collection<Player> getPlayers() {
 		return players;
 	}
 

@@ -1,53 +1,55 @@
 package common;
 
-public class Player
-{
-    private int id;
-    private int x;
-    private int y;
-    private int treasures = 0;
-    private int newTreasures = 0;
+import java.io.Serializable;
 
-    public Player(int id) {
-        this(id, 0, 0);
-    }
+public class Player implements Serializable {
+	private static final long serialVersionUID = 3897111149407010591L;
+	private int id;
+	private int x;
+	private int y;
+	private int treasures = 0;
+	private int newTreasures = 0;
 
-    public Player(int id, int x, int y) {
-        this.id = id;
-        this.x = x;
-        this.y = y;
-    }
+	public Player(int id) {
+		this(id, 0, 0);
+	}
 
-    public void addTreasures(int treasures) {
-        this.newTreasures = treasures;
-        this.treasures += treasures;
-    }
+	public Player(int id, int x, int y) {
+		this.id = id;
+		this.x = x;
+		this.y = y;
+	}
 
-    public int getTreasures() {
-        return treasures;
-    }
+	public void addTreasures(int treasures) {
+		this.newTreasures = treasures;
+		this.treasures += treasures;
+	}
 
-    public int getX() {
-        return x;
-    }
+	public int getTreasures() {
+		return treasures;
+	}
 
-    public int getY() {
-        return y;
-    }
+	public int getX() {
+		return x;
+	}
 
-    public void setX(int x) {
-        this.x = x;
-    }
+	public int getY() {
+		return y;
+	}
 
-    public void setY(int y) {
-        this.y = y;
-    }
-    
-    public int getNewTreasures() {
-    	return newTreasures;
-    }
-    
-    public int getId() {
-    	return id;
-    }
+	public void setX(int x) {
+		this.x = x;
+	}
+
+	public void setY(int y) {
+		this.y = y;
+	}
+
+	public int getNewTreasures() {
+		return newTreasures;
+	}
+
+	public int getId() {
+		return id;
+	}
 }
