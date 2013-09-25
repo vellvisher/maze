@@ -42,4 +42,12 @@ public class Player
     public void setY(int y) {
         this.y = y;
     }
+    
+    public int getNewTreasures() {
+    	return newTreasures;
+    }
+    
+    public int getId() {
+    	return id;
+    }
 }
