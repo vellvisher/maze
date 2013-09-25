@@ -35,10 +35,11 @@
  * intended for use in the design, construction, operation or 
  * maintenance of any nuclear facility.
  */
-//package example.hello;
+package client;
 
 import java.rmi.registry.LocateRegistry;
 import java.rmi.registry.Registry;
+import common.Hello;
 
 public class Client {
 
