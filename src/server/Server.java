@@ -88,7 +88,8 @@ public class Server implements ServerApi {
 		p.setX(pX);
 		p.setY(pY);
 		p.addTreasures(maze[pX][pY].getTreasures());
-		maze[pX][pY].setTreasures(0);
+		maze[pX][pY].clearTreasures();
+		maze[pX][pY].setPlayer(p);
 	}
 
 	@Override
@@ -135,7 +136,7 @@ public class Server implements ServerApi {
 			return Status.PLAYER_BLOCKING;
 		}
 
-		maze[p.getX()][p.getY()] = null;
+		maze[p.getX()][p.getY()].clearPlayer();
 		updatePlayerPosition(p, newX, newY);
 		
 		return Status.MOVE_SUCCESSFUL;

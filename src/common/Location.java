@@ -19,4 +19,10 @@ public class Location implements Serializable {
 	public void setTreasures(int treasures) {
 		this.treasures = treasures;
 	}
+	public void clearTreasures() {
+		this.treasures = 0;
+	}
+	public void clearPlayer() {
+		this.player = null;
+	}
 }
