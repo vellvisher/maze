@@ -1,5 +1,6 @@
 package client;
 
+import java.rmi.RemoteException;
 import java.rmi.registry.LocateRegistry;
 import java.rmi.registry.Registry;
 import java.util.Scanner;
@@ -13,18 +14,19 @@ import common.ServerApi;
 
 public class Client {
 
+	private static Scanner scanner;
+
 	private Client() {
 	}
 
 	public static void main(String[] args) {
 
 		String host = (args.length < 1) ? null : args[0];
-		Scanner scanner = new Scanner(System.in);
+		scanner = new Scanner(System.in);
+
 		try {
 			Registry registry = LocateRegistry.getRegistry(host);
 			ServerApi stub = (ServerApi) registry.lookup("ServerApi");
-			String response = stub.sayHello();
-			System.out.println("response: " + response);
 			Reply reply = stub.joinGame();
 			printStatus(reply.getPlayer(), reply.getStatus());
 			if (reply.getStatus() == Status.JOIN_UNSUCCESSFUL) {
@@ -34,14 +36,7 @@ public class Client {
 			printTreasures(reply.getPlayer());
 			System.out.println("My id is " + reply.getPlayer().getId());
 			while (true) {
-				Direction direction = processInput(scanner.nextLine());
-				if (direction == null) {
-					System.out.println("Incorrect command");
-				} else {
-					reply = stub.move(reply.getPlayer().getId(), direction);
-					printMaze(reply.getMaze());
-					printStatus(reply.getPlayer(), reply.getStatus());
-				}
+				reply = playGame(stub, reply);
 			}
 		} catch (Exception e) {
 			System.err.println("Client exception: " + e.toString());
@@ -49,6 +44,19 @@ public class Client {
 		} finally {
 			scanner.close();
 		}
+	}
+
+	private static Reply playGame(ServerApi stub, Reply reply)
+			throws RemoteException {
+		Direction direction = processInput(scanner.nextLine());
+		if (direction == null) {
+			System.out.println("Incorrect command");
+		} else {
+			reply = stub.move(reply.getPlayer().getId(), direction);
+			printMaze(reply.getMaze());
+			printStatus(reply.getPlayer(), reply.getStatus());
+		}
+		return reply;
 	}
 
 	private static void printTreasures(Player player) {
