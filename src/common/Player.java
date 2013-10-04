@@ -2,7 +2,7 @@ package common;
 
 import java.io.Serializable;
 
-public class Player implements Serializable {
+public class Player implements Serializable, Comparable<Player> {
 	private static final long serialVersionUID = 3897111149407010591L;
 	private int id;
 	private int x;
@@ -61,5 +61,19 @@ public class Player implements Serializable {
 
 	public void setHost(String host) {
 		this.host = host;
+	}
+	
+	@Override
+	public boolean equals(Object o) {
+		if (!(o instanceof Player)) {
+			return false;
+		}
+		Player p = (Player) o;
+		return p.getId() == this.id;
+	}
+
+	@Override
+	public int compareTo(Player p) {
+		return Integer.compare(this.id, p.getId());
 	}
 }

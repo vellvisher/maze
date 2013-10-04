@@ -3,12 +3,12 @@ package client;
 import java.rmi.RemoteException;
 import java.rmi.registry.LocateRegistry;
 import java.rmi.registry.Registry;
-import java.util.Iterator;
 import java.util.Scanner;
+import java.util.Set;
 
 import server.Server;
+
 import common.Location;
-import common.PeerServerApi;
 import common.Player;
 import common.Reply;
 import common.Reply.Direction;
@@ -59,7 +59,7 @@ public class Client {
 			System.exit(0);
 		}
 
-		Iterator<Player> players = reply.getPlayers().iterator();
+		Set<Player> players = reply.getPlayers();
 		// PeerServerApi backupServer = getServer(players.next());
 
 		try {

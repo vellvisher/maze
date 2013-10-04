@@ -3,11 +3,12 @@ package server;
 import java.rmi.registry.LocateRegistry;
 import java.rmi.registry.Registry;
 import java.rmi.server.UnicastRemoteObject;
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Random;
+import java.util.Set;
+import java.util.TreeSet;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -32,7 +33,7 @@ public class Server implements ServerApi {
 	private AtomicInteger nextPlayerId = new AtomicInteger(1);
 	private AtomicBoolean joinEnd = new AtomicBoolean(false);
 	private boolean firstPlayer = true;
-	private ArrayList<Player> playerList;
+	private Set<Player> playerList;
 
 	public Server() {
 		maze = new Location[N][N];
@@ -74,7 +75,7 @@ public class Server implements ServerApi {
 						} while (true);
 						updatePlayerPosition(p, pX, pY);
 					}
-					playerList = new ArrayList<Player>(syncPlayers.values());
+					playerList = new TreeSet<Player>(syncPlayers.values());
 				}
 			}
 		}
