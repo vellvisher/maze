@@ -6,10 +6,11 @@ import java.rmi.registry.Registry;
 import java.util.Scanner;
 import java.util.Set;
 
+import server.PrimaryServer;
 import server.Server;
-
 import common.Location;
 import common.Player;
+import common.PrimaryServerStub;
 import common.Reply;
 import common.Reply.Direction;
 import common.Reply.Status;
@@ -31,17 +32,19 @@ public class Client {
 		boolean isPrimary = checkPrimaryArgument(args);
 
 		if (isPrimary) {
-			Server.main(getNM(args));
+			setNM(args);
+			PrimaryServer server = new PrimaryServer(N, M);
+			server.runServer();
 		}
 
 		scanner = new Scanner(System.in);
 		Reply reply = null;
-		ServerApi server = null;
+		PrimaryServerStub server = null;
 		Player player = null;
 
 		try {
 			Registry registry = LocateRegistry.getRegistry(host);
-			server = (ServerApi) registry.lookup(ServerApi.SERVER_REGISTRY_PREFIX);
+			server = (PrimaryServerStub) registry.lookup(ServerApi.SERVER_REGISTRY_PREFIX + "1");
 			reply = server.joinGame();
 
 			if (reply == null) {
@@ -62,6 +65,12 @@ public class Client {
 			System.exit(0);
 		}
 
+		if (!isPrimary) {
+			N = reply.getMaze().length;
+			Server peerServer = new Server(player.getId(), N);
+			peerServer.runServer();
+		}
+		
 		Set<Player> players = reply.getPlayers();
 		// PeerServerApi backupServer = getServer(players.next());
 
@@ -79,19 +88,16 @@ public class Client {
 			scanner.close();
 		}
 	}
-
-	private void setNM(Location[][] maze) {
-		N = maze.length;
-	}
 	
-	private static String[] getNM(String[] args) {
+	private static void setNM(String[] args) {
 		int i = 0;
 		for (i = 0; i < args.length - 2; i++) {
 			if ("-primary".equals(args[i])) {
 				break;
 			}
 		}
-		return new String[] { args[i + 1], args[i + 2] };
+		N = Integer.parseInt(args[i + 1]);
+		M = Integer.parseInt(args[i + 2]);
 	}
 
 	private static String getServerHostname(String[] args) {

@@ -7,11 +7,7 @@ import java.rmi.server.UnicastRemoteObject;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Random;
 import java.util.Set;
-import java.util.TreeSet;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicInteger;
 
 import common.Location;
 import common.Player;
@@ -21,69 +17,30 @@ import common.Reply.Status;
 import common.ServerApi;
 
 public class Server implements ServerApi {
-	private static final String SERVER_RMI_ADDRESS = ServerApi.SERVER_REGISTRY_PREFIX;
-	private static final int DEFAULT_PORT = 0;
-	private static final int WAITING_PERIOD = 20000;
+	protected static final int DEFAULT_PORT = 0;
+	
+	protected static int id;
+	protected static int N;
 
-	private static int N;
-	private static int M;
-
-	private Location[][] maze;
-	private Map<Integer, Player> syncPlayers = Collections
+	protected Location[][] maze;
+	protected Map<Integer, Player> syncPlayers = Collections
 			.synchronizedMap(new HashMap<Integer, Player>());
-	private AtomicInteger nextPlayerId = new AtomicInteger(1);
-	private AtomicBoolean joinEnd = new AtomicBoolean(false);
-	private boolean firstPlayer = true;
-	private Set<Player> playerList;
-
-	public Server() {
+	protected Set<Player> playerList;
+	protected Server backupServer;
+	
+	public Server(int id, int n) {
+		Server.id = id;
+		N = n;
 		maze = new Location[N][N];
-		initializeMaze();
 	}
 
-	public Reply joinGame() {
-		if (joinEnd.get() || nextPlayerId.get() > N * N) {
-			return new Reply(null, null, null, Status.JOIN_UNSUCCESSFUL);
-		}
-
-		Player player = new Player(nextPlayerId.getAndIncrement());
-		synchronized (syncPlayers) {
-			syncPlayers.put(player.getId(), player);
-		}
-		synchronized (this) {
-			if (firstPlayer) {
-				firstPlayer = false;
-				try {
-					Thread.sleep(WAITING_PERIOD);
-				} catch (InterruptedException ignored) {
-					ignored.printStackTrace();
-				}
-				joinEnd.set(true);
-
-				synchronized (syncPlayers) {
-					for (Player p : syncPlayers.values()) {
-						Random random = new Random();
-						int pX, pY;
-
-						do {
-							pX = random.nextInt(N);
-							pY = random.nextInt(N);
-
-							if (maze[pX][pY].getPlayer() == null) {
-								maze[pX][pY].setPlayer(p);
-								break;
-							}
-						} while (true);
-						updatePlayerPosition(p, pX, pY);
-					}
-					playerList = new TreeSet<Player>(syncPlayers.values());
-				}
-			}
-		}
-		return new Reply(maze, player, playerList, Status.JOIN_SUCCESSFUL);
+	public Server(Location[][] maze, Map<Integer, Player> syncPlayers, Set<Player> playerList) {
+		this.maze = maze;
+		this.syncPlayers = syncPlayers;
+		this.playerList = playerList;
 	}
 
-	private void updatePlayerPosition(Player p, int pX, int pY) {
+	protected void updatePlayerPosition(Player p, int pX, int pY) {
 		p.setX(pX);
 		p.setY(pY);
 		p.addTreasures(maze[pX][pY].getTreasures());
@@ -104,6 +61,7 @@ public class Server implements ServerApi {
 			}
 		}
 		synchronized (maze) {
+			// backupServer.movePlayer(player, d);
 			return new Reply(maze, player, playerList, movePlayer(player, d));
 		}
 	}
@@ -141,54 +99,22 @@ public class Server implements ServerApi {
 		return Status.MOVE_SUCCESSFUL;
 	}
 
-	private void initializeMaze() {
-		for (int i = 0; i < N; i++) {
-			for (int j = 0; j < N; j++) {
-				maze[i][j] = new Location();
-			}
-		}
-		Random random = new Random();
-		for (int i = 1; i <= M; i++) {
-			int mazeX = random.nextInt(N);
-			int mazeY = random.nextInt(N);
-			maze[mazeX][mazeY]
-					.setTreasures(maze[mazeX][mazeY].getTreasures() + 1);
-		}
-	}
-
-	public static void main(String args[]) {
-		if (args.length < 2) {
-			System.err.println("Enter N and M");
-			System.exit(0);
-		}
-		runServer(1, Integer.parseInt(args[0]), Integer.parseInt(args[1]));
-	}
-	
-	public static void runServer(int id, int n, int m) {
+	public void runServer() {
 		ServerApi stub = null;
 		Registry registry = null;
 
-		N = n;
-		M = m;
-
-		if (N < 1 || M < 1) {
-			System.err.println("Enter positive values for N and M");
-			System.exit(0);
-		}
-
 		try {
-			Server obj = new Server();
-			stub = (ServerApi) UnicastRemoteObject.exportObject(obj,
+			stub = (ServerApi) UnicastRemoteObject.exportObject(this,
 					DEFAULT_PORT);
 			registry = LocateRegistry.getRegistry();
-			registry.bind(SERVER_RMI_ADDRESS, stub);
+			registry.bind(ServerApi.SERVER_REGISTRY_PREFIX + id, stub);
 
 			System.err.println("Server ready");
 		} catch (Exception e) {
 			try {
 				e.printStackTrace();
-				registry.unbind(SERVER_RMI_ADDRESS);
-				registry.bind(SERVER_RMI_ADDRESS, stub);
+				registry.unbind(ServerApi.SERVER_REGISTRY_PREFIX + id);
+				registry.bind(ServerApi.SERVER_REGISTRY_PREFIX + id, stub);
 				System.err.println("Server ready");
 			} catch (Exception ee) {
 				System.err.println("Server exception: " + ee.toString());
@@ -199,5 +125,11 @@ public class Server implements ServerApi {
 
 	@Override
 	public void ping() throws RemoteException {
+	}
+
+	@Override
+	public void initializeBackup(Location[][] maze,
+			HashMap<Integer, Player> playerMap) {
+		// no clue
 	}
 }
