@@ -9,15 +9,17 @@ public class Player implements Serializable {
 	private int y;
 	private int treasures = 0;
 	private int newTreasures = 0;
+	private String host;
 
 	public Player(int id) {
-		this(id, 0, 0);
+		this(id, 0, 0, null);
 	}
 
-	public Player(int id, int x, int y) {
+	public Player(int id, int x, int y, String host) {
 		this.id = id;
 		this.x = x;
 		this.y = y;
+		this.setHost(host);
 	}
 
 	public void addTreasures(int treasures) {
@@ -51,5 +53,13 @@ public class Player implements Serializable {
 
 	public int getId() {
 		return id;
+	}
+
+	public String getHost() {
+		return host;
+	}
+
+	public void setHost(String host) {
+		this.host = host;
 	}
 }

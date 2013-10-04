@@ -19,6 +19,7 @@ import common.Reply.Status;
 import common.ServerApi;
 
 public class Server implements ServerApi {
+	private static final String SERVER_RMI_ADDRESS = ServerApi.SERVER_REGISTRY;
 	private static final int DEFAULT_PORT = 0;
 	private static final int WAITING_PERIOD = 20000;
 
@@ -38,12 +39,8 @@ public class Server implements ServerApi {
 		initializeMaze();
 	}
 
-	public String sayHello() {
-		return "Hello, world!";
-	}
-
 	public Reply joinGame() {
-		if (joinEnd.get() || nextPlayerId.get() > N*N) {
+		if (joinEnd.get() || nextPlayerId.get() > N * N) {
 			return new Reply(null, null, null, Status.JOIN_UNSUCCESSFUL);
 		}
 
@@ -98,13 +95,13 @@ public class Server implements ServerApi {
 		if (d == null) {
 			return new Reply(null, null, null, Status.INVALID_MOVE);
 		}
-		synchronized(syncPlayers) {
+		synchronized (syncPlayers) {
 			player = syncPlayers.get(id);
 			if (player == null) {
 				return new Reply(null, null, null, Status.INVALID_MOVE);
 			}
 		}
-		synchronized(maze) {
+		synchronized (maze) {
 			return new Reply(maze, player, playerList, movePlayer(player, d));
 		}
 	}
@@ -138,10 +135,10 @@ public class Server implements ServerApi {
 
 		maze[p.getX()][p.getY()].clearPlayer();
 		updatePlayerPosition(p, newX, newY);
-		
+
 		return Status.MOVE_SUCCESSFUL;
 	}
-	
+
 	private void initializeMaze() {
 		for (int i = 0; i < N; i++) {
 			for (int j = 0; j < N; j++) {
@@ -152,7 +149,8 @@ public class Server implements ServerApi {
 		for (int i = 1; i <= M; i++) {
 			int mazeX = random.nextInt(N);
 			int mazeY = random.nextInt(N);
-			maze[mazeX][mazeY].setTreasures(maze[mazeX][mazeY].getTreasures() + 1);
+			maze[mazeX][mazeY]
+					.setTreasures(maze[mazeX][mazeY].getTreasures() + 1);
 		}
 	}
 
@@ -172,19 +170,20 @@ public class Server implements ServerApi {
 			System.err.println("Enter positive values for N and M");
 			System.exit(0);
 		}
-		
+
 		try {
 			Server obj = new Server();
 			stub = (ServerApi) UnicastRemoteObject.exportObject(obj,
 					DEFAULT_PORT);
 			registry = LocateRegistry.getRegistry();
-			registry.bind("ServerApi", stub);
+			registry.bind(SERVER_RMI_ADDRESS, stub);
 
 			System.err.println("Server ready");
 		} catch (Exception e) {
 			try {
-				registry.unbind("ServerApi");
-				registry.bind("ServerApi", stub);
+				e.printStackTrace();
+				registry.unbind(SERVER_RMI_ADDRESS);
+				registry.bind(SERVER_RMI_ADDRESS, stub);
 				System.err.println("Server ready");
 			} catch (Exception ee) {
 				System.err.println("Server exception: " + ee.toString());

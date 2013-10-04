@@ -21,8 +21,8 @@ public class Reply implements Serializable {
 		N, S, W, E, NoMove
 	}
 
-	public Reply(Location[][] maze, Player player,
-			List<Player> players, Status status) {
+	public Reply(Location[][] maze, Player player, List<Player> players,
+			Status status) {
 		this.maze = maze;
 		this.player = player;
 		this.players = players;

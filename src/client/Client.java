@@ -3,9 +3,12 @@ package client;
 import java.rmi.RemoteException;
 import java.rmi.registry.LocateRegistry;
 import java.rmi.registry.Registry;
+import java.util.Iterator;
 import java.util.Scanner;
 
+import server.Server;
 import common.Location;
+import common.PeerServerApi;
 import common.Player;
 import common.Reply;
 import common.Reply.Direction;
@@ -21,22 +24,50 @@ public class Client {
 
 	public static void main(String[] args) {
 
-		String host = (args.length < 1) ? null : args[0];
+		String host = getServerHostname(args);
+		boolean isPrimary = checkPrimaryArgument(args);
+
+		if (isPrimary) {
+			Server.main(getNM(args));
+		}
+
 		scanner = new Scanner(System.in);
+		Reply reply = null;
+		ServerApi server = null;
+		Player player = null;
 
 		try {
 			Registry registry = LocateRegistry.getRegistry(host);
-			ServerApi stub = (ServerApi) registry.lookup("ServerApi");
-			Reply reply = stub.joinGame();
-			printStatus(reply.getPlayer(), reply.getStatus());
+			server = (ServerApi) registry.lookup(ServerApi.SERVER_REGISTRY);
+			reply = server.joinGame();
+
+			if (reply == null) {
+				System.err.println("Null reply, exiting!");
+				System.exit(0);
+			}
+
+			player = reply.getPlayer();
+
+			printStatus(player, reply.getStatus());
+
 			if (reply.getStatus() == Status.JOIN_UNSUCCESSFUL) {
 				System.exit(0);
 			}
+		} catch (Exception e) {
+			System.err.println("Client exception: " + e.toString());
+			e.printStackTrace();
+			System.exit(0);
+		}
+
+		Iterator<Player> players = reply.getPlayers().iterator();
+		// PeerServerApi backupServer = getServer(players.next());
+
+		try {
 			printMaze(reply.getMaze());
-			printTreasures(reply.getPlayer());
-			System.out.println("My id is " + reply.getPlayer().getId());
+			printTreasures(player);
+			System.out.println("My id is " + player.getId());
 			while (true) {
-				reply = playGame(stub, reply);
+				reply = playGame(server, reply);
 			}
 		} catch (Exception e) {
 			System.err.println("Client exception: " + e.toString());
@@ -44,6 +75,34 @@ public class Client {
 		} finally {
 			scanner.close();
 		}
+	}
+
+	private static String[] getNM(String[] args) {
+		int i = 0;
+		for (i = 0; i < args.length - 2; i++) {
+			if ("-primary".equals(args[i])) {
+				break;
+			}
+		}
+		return new String[] { args[i + 1], args[i + 2] };
+	}
+
+	private static String getServerHostname(String[] args) {
+		for (int i = 0; i < args.length - 1; i++) {
+			if ("-host".equalsIgnoreCase(args[i])) {
+				return args[i + 1];
+			}
+		}
+		return null;
+	}
+
+	private static boolean checkPrimaryArgument(String[] args) {
+		for (String s : args) {
+			if ("-primary".equals(s)) {
+				return true;
+			}
+		}
+		return false;
 	}
 
 	private static Reply playGame(ServerApi stub, Reply reply)
@@ -60,8 +119,10 @@ public class Client {
 	}
 
 	private static void printTreasures(Player player) {
-		System.out.println("You currently have " + player.getTreasures() + " treasures");
-		System.out.println("You collected " + player.getNewTreasures() + " new treasures.");
+		System.out.println("You currently have " + player.getTreasures()
+				+ " treasures");
+		System.out.println("You collected " + player.getNewTreasures()
+				+ " new treasures.");
 	}
 
 	private static void printStatus(Player player, Status status) {
@@ -88,7 +149,7 @@ public class Client {
 			break;
 		}
 	}
-	
+
 	private static void printMaze(Location[][] maze) {
 		for (int i = 0; i < maze.length; i++) {
 			for (int j = 0; j < maze.length; j++) {
@@ -103,10 +164,10 @@ public class Client {
 			System.out.println();
 		}
 	}
-	
+
 	private static Direction processInput(String input) {
 		input = input.trim();
-		switch(input) {
+		switch (input) {
 		case "N":
 			return Direction.N;
 		case "S":
