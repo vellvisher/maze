@@ -18,6 +18,9 @@ import common.ServerApi;
 public class Client {
 
 	private static Scanner scanner;
+	
+	private static int N;
+	private static int M;
 
 	private Client() {
 	}
@@ -38,7 +41,7 @@ public class Client {
 
 		try {
 			Registry registry = LocateRegistry.getRegistry(host);
-			server = (ServerApi) registry.lookup(ServerApi.SERVER_REGISTRY);
+			server = (ServerApi) registry.lookup(ServerApi.SERVER_REGISTRY_PREFIX);
 			reply = server.joinGame();
 
 			if (reply == null) {
@@ -77,6 +80,10 @@ public class Client {
 		}
 	}
 
+	private void setNM(Location[][] maze) {
+		N = maze.length;
+	}
+	
 	private static String[] getNM(String[] args) {
 		int i = 0;
 		for (i = 0; i < args.length - 2; i++) {

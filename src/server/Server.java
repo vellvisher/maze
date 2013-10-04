@@ -1,5 +1,6 @@
 package server;
 
+import java.rmi.RemoteException;
 import java.rmi.registry.LocateRegistry;
 import java.rmi.registry.Registry;
 import java.rmi.server.UnicastRemoteObject;
@@ -20,7 +21,7 @@ import common.Reply.Status;
 import common.ServerApi;
 
 public class Server implements ServerApi {
-	private static final String SERVER_RMI_ADDRESS = ServerApi.SERVER_REGISTRY;
+	private static final String SERVER_RMI_ADDRESS = ServerApi.SERVER_REGISTRY_PREFIX;
 	private static final int DEFAULT_PORT = 0;
 	private static final int WAITING_PERIOD = 20000;
 
@@ -156,16 +157,19 @@ public class Server implements ServerApi {
 	}
 
 	public static void main(String args[]) {
-		ServerApi stub = null;
-		Registry registry = null;
-
 		if (args.length < 2) {
 			System.err.println("Enter N and M");
 			System.exit(0);
 		}
+		runServer(1, Integer.parseInt(args[0]), Integer.parseInt(args[1]));
+	}
+	
+	public static void runServer(int id, int n, int m) {
+		ServerApi stub = null;
+		Registry registry = null;
 
-		N = Integer.parseInt(args[0]);
-		M = Integer.parseInt(args[1]);
+		N = n;
+		M = m;
 
 		if (N < 1 || M < 1) {
 			System.err.println("Enter positive values for N and M");
@@ -191,5 +195,9 @@ public class Server implements ServerApi {
 				ee.printStackTrace();
 			}
 		}
+	}
+
+	@Override
+	public void ping() throws RemoteException {
 	}
 }
