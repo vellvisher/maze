@@ -3,11 +3,12 @@ package client;
 import java.rmi.RemoteException;
 import java.rmi.registry.LocateRegistry;
 import java.rmi.registry.Registry;
+import java.util.List;
 import java.util.Scanner;
-import java.util.Set;
 
 import server.PrimaryServer;
 import server.Server;
+
 import common.Location;
 import common.Player;
 import common.PrimaryServerStub;
@@ -23,9 +24,12 @@ public class Client {
 	private static int N;
 	private static int M;
 
-	private Client() {
-	}
-
+	private static ServerApi server = null;
+	private static int serverId = 1;
+	private static List<Player> players;
+	private static Player player = null;
+	private static int logPlayers = 0;
+	
 	public static void main(String[] args) {
 
 		String host = getServerHostname(args);
@@ -39,53 +43,48 @@ public class Client {
 
 		scanner = new Scanner(System.in);
 		Reply reply = null;
-		PrimaryServerStub server = null;
-		Player player = null;
-
+		PrimaryServerStub joinServer = null;
+		Server peerServer = null;
+		
 		try {
 			Registry registry = LocateRegistry.getRegistry(host);
-			server = (PrimaryServerStub) registry.lookup(ServerApi.SERVER_REGISTRY_PREFIX + "1");
-			reply = server.joinGame();
+			joinServer = (PrimaryServerStub) registry.lookup(ServerApi.SERVER_REGISTRY_PREFIX + "1");
+			reply = joinServer.joinGame();
 
 			if (reply == null) {
 				System.err.println("Null reply, exiting!");
 				System.exit(0);
 			}
-
-			player = reply.getPlayer();
-
-			printStatus(player, reply.getStatus());
-
+			printStatus(reply.getStatus());
+			
 			if (reply.getStatus() == Status.JOIN_UNSUCCESSFUL) {
 				System.exit(0);
 			}
 		} catch (Exception e) {
 			System.err.println("Client exception: " + e.toString());
-			e.printStackTrace();
 			System.exit(0);
 		}
 
+		player = reply.getPlayer();
+		server = joinServer;
+		players = reply.getPlayers();
+		logPlayers = (int)(Math.log10(players.size())+1);
+		
 		if (!isPrimary) {
 			N = reply.getMaze().length;
-			Server peerServer = new Server(player.getId(), N);
+			peerServer = new Server(player.getId(), N);
 			peerServer.runServer();
 		}
 		
-		Set<Player> players = reply.getPlayers();
-		// PeerServerApi backupServer = getServer(players.next());
+		if (player.getId() == 2) {
+			peerServer.initializeBackup(reply.getMaze(), players);
+		}
 
-		try {
-			printMaze(reply.getMaze());
-			printTreasures(player);
-			System.out.println("My id is " + player.getId());
-			while (true) {
-				reply = playGame(server, reply);
-			}
-		} catch (Exception e) {
-			System.err.println("Client exception: " + e.toString());
-			e.printStackTrace();
-		} finally {
-			scanner.close();
+		printMaze(reply.getMaze());
+		printTreasures(player);
+		System.out.println("My id is " + player.getId());
+		while (true) {
+			playGame();
 		}
 	}
 	
@@ -118,17 +117,56 @@ public class Client {
 		return false;
 	}
 
-	private static Reply playGame(ServerApi stub, Reply reply)
-			throws RemoteException {
+	private static void playGame() {
 		Direction direction = processInput(scanner.nextLine());
 		if (direction == null) {
 			System.out.println("Incorrect command");
 		} else {
-			reply = stub.move(reply.getPlayer().getId(), direction);
+			Reply reply = playMove(direction);
 			printMaze(reply.getMaze());
-			printStatus(reply.getPlayer(), reply.getStatus());
+			printStatus(reply.getStatus());
+		}
+	}
+
+	private static Reply playMove(Direction direction) {
+		Reply reply = null;
+		try {
+			reply = server.move(player.getId(), direction);
+		} catch (RemoteException e) {
+			System.out.println("Could not contact server " + serverId + "...");
+			server = findNextPeer();
+			if (server == null) {
+				System.out.println("Could not find replacement server...");
+				System.out.println("Dying...");
+				System.exit(0);
+			}
+			reply = playMove(direction);
 		}
 		return reply;
+	}
+
+	private static ServerApi findNextPeer() {
+		for (int i = serverId + 1; i <= players.size(); i++) {
+			ServerApi s = getServer(players.get(i).getHost(), i);
+			if (s != null) {
+				System.out.println("Switching to server " + i);
+				serverId = i;
+				return s;
+			}
+		}
+		return null;
+	}
+
+	private static ServerApi getServer(String host, int id) {
+		ServerApi server = null;
+		try {
+			Registry registry = LocateRegistry.getRegistry(host);
+			server = (ServerApi) registry.lookup(ServerApi.SERVER_REGISTRY_PREFIX + id);
+			server.ping();
+		} catch (Exception e) {
+			System.err.println("Server " + id + " is down");
+		}
+		return server;
 	}
 
 	private static void printTreasures(Player player) {
@@ -138,7 +176,7 @@ public class Client {
 				+ " new treasures.");
 	}
 
-	private static void printStatus(Player player, Status status) {
+	private static void printStatus(Status status) {
 		switch (status) {
 		case JOIN_SUCCESSFUL:
 			System.out.println("Joined");
@@ -164,15 +202,29 @@ public class Client {
 	}
 
 	private static void printMaze(Location[][] maze) {
-		for (int i = 0; i < maze.length; i++) {
+		for (int i = 0; i < maze.length; i++) { 
+			StringBuilder output = new StringBuilder();
 			for (int j = 0; j < maze.length; j++) {
-				System.out.print(maze[i][j].getTreasures() + "p");
+				output.append("| T" + maze[i][j].getTreasures() + " ");
 				if (maze[i][j].getPlayer() != null) {
-					System.out.print(maze[i][j].getPlayer().getId());
+					output.append("P" + maze[i][j].getPlayer().getId());
 				} else {
-					System.out.print("0");
+					for (int k = 1; k <= logPlayers + 1; k++) {
+						output.append("X");
+					}
 				}
-				System.out.print("  ");
+				output.append(" ");
+			}
+			output.append("|");
+			if (i == 0) {
+				for (int j = 0; j < output.length(); j++) {
+					System.out.print("-");
+				}				
+				System.out.println();
+			}
+			System.out.println(output);
+			for (int j = 0; j < output.length(); j++) {
+				System.out.print("-");
 			}
 			System.out.println();
 		}
@@ -192,6 +244,7 @@ public class Client {
 		case "NoMove":
 			return Direction.NoMove;
 		case "exit":
+			scanner.close();
 			System.exit(0);
 		default:
 			return null;

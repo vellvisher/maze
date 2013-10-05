@@ -2,9 +2,10 @@ package server;
 
 import java.rmi.registry.LocateRegistry;
 import java.rmi.registry.Registry;
+import java.rmi.server.ServerNotActiveException;
 import java.rmi.server.UnicastRemoteObject;
+import java.util.ArrayList;
 import java.util.Random;
-import java.util.TreeSet;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -12,11 +13,13 @@ import common.Location;
 import common.Player;
 import common.PrimaryServerStub;
 import common.Reply;
-import common.ServerApi;
 import common.Reply.Status;
+import common.ServerApi;
 
 public class PrimaryServer extends Server implements PrimaryServerStub {
-	private static final int WAITING_PERIOD = 20000;
+	private static final long serialVersionUID = 2562787482457362889L;
+
+	private static final int WAITING_PERIOD = 10000;
 
 	private AtomicInteger nextPlayerId = new AtomicInteger(1);
 	private AtomicBoolean joinEnd = new AtomicBoolean(false);
@@ -31,6 +34,14 @@ public class PrimaryServer extends Server implements PrimaryServerStub {
 	}
 
 	public Reply joinGame() {
+		String clientHost = null;
+		try {
+			clientHost = getClientHost();
+		} catch (ServerNotActiveException ignored) {
+			ignored.printStackTrace();
+		}
+		System.err.println(clientHost + " sent join request");
+
 		if (joinEnd.get() || nextPlayerId.get() > N * N) {
 			return new Reply(null, null, null, Status.JOIN_UNSUCCESSFUL);
 		}
@@ -65,17 +76,18 @@ public class PrimaryServer extends Server implements PrimaryServerStub {
 						} while (true);
 						updatePlayerPosition(p, pX, pY);
 					}
-					playerList = new TreeSet<Player>(syncPlayers.values());
+					playerList = new ArrayList<Player>(syncPlayers.values());
 				}
 			}
 		}
-		if (player.getId() == 2) {
-			// Init backup
-		}
+		player.setHost(clientHost);
 		return new Reply(maze, player, playerList, Status.JOIN_SUCCESSFUL);
 	}
 
 	private void initializeMaze() {
+		if (maze == null) {
+			maze = new Location[N][N];
+		}
 		for (int i = 0; i < N; i++) {
 			for (int j = 0; j < N; j++) {
 				maze[i][j] = new Location();
