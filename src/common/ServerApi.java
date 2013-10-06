@@ -16,6 +16,6 @@ public interface ServerApi extends Remote {
 	
 	void ping() throws RemoteException;
 
-	void initializeBackup(Location[][] maze, List<Player> playerSet)
+	void initializeBackup(Location[][] maze, List<Player> playerSet, int mainServerId)
 			throws RemoteException;
 }

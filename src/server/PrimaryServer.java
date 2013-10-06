@@ -1,10 +1,13 @@
 package server;
 
+import java.rmi.AlreadyBoundException;
 import java.rmi.registry.LocateRegistry;
 import java.rmi.registry.Registry;
 import java.rmi.server.ServerNotActiveException;
 import java.rmi.server.UnicastRemoteObject;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 import java.util.Random;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -24,13 +27,16 @@ public class PrimaryServer extends Server implements PrimaryServerStub {
 	private AtomicInteger nextPlayerId = new AtomicInteger(1);
 	private AtomicBoolean joinEnd = new AtomicBoolean(false);
 	private boolean firstPlayer = true;
-	
+
+	private List<Player> syncPlayerList = Collections
+			.synchronizedList(new ArrayList<Player>());
 	private static int M;
-	
+
 	public PrimaryServer(int n, int m) {
 		super(1, n);
 		M = m;
 		initializeMaze();
+
 	}
 
 	public Reply joinGame() {
@@ -47,8 +53,8 @@ public class PrimaryServer extends Server implements PrimaryServerStub {
 		}
 
 		Player player = new Player(nextPlayerId.getAndIncrement());
-		synchronized (syncPlayers) {
-			syncPlayers.put(player.getId(), player);
+		synchronized (syncPlayerList) {
+			syncPlayerList.add(player);
 		}
 		synchronized (this) {
 			if (firstPlayer) {
@@ -60,23 +66,21 @@ public class PrimaryServer extends Server implements PrimaryServerStub {
 				}
 				joinEnd.set(true);
 
-				synchronized (syncPlayers) {
-					for (Player p : syncPlayers.values()) {
-						Random random = new Random();
-						int pX, pY;
+				this.playerList = Collections.unmodifiableList(syncPlayerList);
+				for (Player p : playerList) {
+					Random random = new Random();
+					int pX, pY;
 
-						do {
-							pX = random.nextInt(N);
-							pY = random.nextInt(N);
+					do {
+						pX = random.nextInt(N);
+						pY = random.nextInt(N);
 
-							if (maze[pX][pY].getPlayer() == null) {
-								maze[pX][pY].setPlayer(p);
-								break;
-							}
-						} while (true);
-						updatePlayerPosition(p, pX, pY);
-					}
-					playerList = new ArrayList<Player>(syncPlayers.values());
+						if (maze[pX][pY].getPlayer() == null) {
+							maze[pX][pY].setPlayer(p);
+							break;
+						}
+					} while (true);
+					updatePlayerPosition(p, pX, pY);
 				}
 			}
 		}
@@ -101,7 +105,7 @@ public class PrimaryServer extends Server implements PrimaryServerStub {
 					.setTreasures(maze[mazeX][mazeY].getTreasures() + 1);
 		}
 	}
-	
+
 	@Override
 	public void runServer() {
 		PrimaryServerStub stub = null;
@@ -116,7 +120,9 @@ public class PrimaryServer extends Server implements PrimaryServerStub {
 			System.err.println("Server ready");
 		} catch (Exception e) {
 			try {
-				e.printStackTrace();
+				if (!(e instanceof AlreadyBoundException)) {
+					e.printStackTrace();
+				}
 				registry.unbind(ServerApi.SERVER_REGISTRY_PREFIX + id);
 				registry.bind(ServerApi.SERVER_REGISTRY_PREFIX + id, stub);
 				System.err.println("Server ready");

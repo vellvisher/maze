@@ -77,7 +77,7 @@ public class Client {
 		}
 		
 		if (player.getId() == 2) {
-			peerServer.initializeBackup(reply.getMaze(), players);
+			peerServer.initializeBackup(reply.getMaze(), players, 1);
 		}
 
 		printMaze(reply.getMaze());

@@ -1,14 +1,12 @@
 package server;
 
+import java.rmi.AlreadyBoundException;
 import java.rmi.RemoteException;
 import java.rmi.registry.LocateRegistry;
 import java.rmi.registry.Registry;
 import java.rmi.server.RemoteServer;
 import java.rmi.server.UnicastRemoteObject;
-import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 import common.Location;
 import common.Player;
@@ -20,20 +18,39 @@ import common.ServerApi;
 public class Server extends RemoteServer implements ServerApi {
 	private static final long serialVersionUID = 3126187241824135686L;
 
-	protected static final int DEFAULT_PORT = 0;
+	protected final int DEFAULT_PORT = 0;
 	
-	protected static int id;
-	protected static int backupId;
-	protected static int N;
+	protected int id;
+	protected int backupId;
+	protected int N;
 
 	protected Location[][] maze;
-	protected Map<Integer, Player> syncPlayers =
-			Collections.synchronizedMap(new HashMap<Integer, Player>());
 	protected List<Player> playerList;
 	protected ServerApi backupServer;
+
+	private Thread pingThread;
+
+	class PingManager implements Runnable {
+		private static final long PING_FREQUENCY = 15000;
+		private ServerApi pingServer;
+		public PingManager(ServerApi pingServer) {
+			this.pingServer = pingServer;
+		}
+		@Override
+		public void run() {
+			while (pingServer(pingServer)) {
+				try {
+					Thread.sleep(PING_FREQUENCY);
+				} catch (InterruptedException e) {
+					return;
+				}
+			}
+			initializeRemoteBackup();
+		}
+	};
 	
 	public Server(int id, int n) {
-		Server.id = id;
+		this.id = id;
 		backupId = id;
 		N = n;
 	}
@@ -62,44 +79,53 @@ public class Server extends RemoteServer implements ServerApi {
 
 		Player player;
 
-		synchronized (syncPlayers) {
-			player = syncPlayers.get(id);
-			if (player == null) {
-				return new Reply(null, null, null, Status.INVALID_MOVE);
-			}
+		player = playerList.get(id - 1);
+		if (player == null) {
+			return new Reply(null, null, null, Status.INVALID_MOVE);
 		}
-		synchronized (maze) {
-			if (backupServer == null) {
-				backupServer = findNextPeer(playerList);
-				try {
-					backupServer.initializeBackup(maze, playerList);
-				} catch (RemoteException e) {
-					System.err.println("No backup server...");
-					System.exit(0);
-				}
+
+		Reply reply;
+
+		synchronized (this) {
+			reply = new Reply(maze, player, playerList, movePlayer(player, d));	
+			if (reply.getStatus() != Status.MOVE_SUCCESSFUL) {
+				return reply;
 			}
 			try {
 				backupServer.movePlayer(player, d);
-			} catch (RemoteException e) {
-				backupServer = findNextPeer(playerList);
-				if (backupServer == null) {
-					System.err.println("No backup server...");
-					System.exit(0);
-				}
+			} catch (Exception e) {
+				initializeRemoteBackup();
 				try {
-					backupServer.initializeBackup(maze, playerList);
 					backupServer.movePlayer(player, d);
 				} catch (RemoteException e1) {
 					System.err.println("No backup server...");
 					System.exit(0);
 				}
 			}
-			return new Reply(maze, player, playerList, movePlayer(player, d));
+		}
+		return reply;
+	}
+
+	private synchronized void initializeRemoteBackup() {
+		backupServer = findNextPeer();
+		try {
+			if (backupServer == null) {
+				throw new RemoteException();
+			}
+			backupServer.initializeBackup(maze, playerList, id);
+			if (pingThread != null) {
+				pingThread.interrupt();
+			}
+			pingThread = new Thread(new PingManager(backupServer));
+			pingThread.start();
+		} catch (RemoteException e) {
+			System.err.println("No backup server...");
+			System.exit(0);
 		}
 	}
 
-	private static ServerApi findNextPeer(List<Player> playerList2) {
-		for (int i = backupId + 1; i <= playerList2.size(); i++) {
+	private ServerApi findNextPeer() {
+		for (int i = backupId + 1; i <= playerList.size(); i++) {
 			ServerApi s = getServer(null, i);
 			if (s != null) {
 				System.err.println("Switching to backup server " + i);
@@ -110,7 +136,7 @@ public class Server extends RemoteServer implements ServerApi {
 		return null;
 	}
 
-	private static ServerApi getServer(String host, int id) {
+	private ServerApi getServer(String host, int id) {
 		ServerApi server = null;
 		try {
 			Registry registry = LocateRegistry.getRegistry(host);
@@ -170,7 +196,9 @@ public class Server extends RemoteServer implements ServerApi {
 			System.err.println("Server ready");
 		} catch (Exception e) {
 			try {
-				e.printStackTrace();
+				if (! (e instanceof AlreadyBoundException)) {
+					e.printStackTrace();
+				}
 				registry.unbind(ServerApi.SERVER_REGISTRY_PREFIX + id);
 				registry.bind(ServerApi.SERVER_REGISTRY_PREFIX + id, stub);
 				System.err.println("Server ready");
@@ -181,20 +209,27 @@ public class Server extends RemoteServer implements ServerApi {
 		}
 	}
 
+	private boolean pingServer(ServerApi server) {
+		try {
+			server.ping();
+			return true;
+		} catch (RemoteException e) {
+			return false;
+		}
+	}
+	
 	@Override
 	public void ping() throws RemoteException {
 	}
 
 	@Override
-	public synchronized void initializeBackup(Location[][] maze, List<Player> players) {
+	public synchronized void initializeBackup(Location[][] maze, List<Player> players, int mainServerId) {
 		System.err.println("Initializing backup id:" + id);
+		final ServerApi mainServer = getServer(players.get(mainServerId).getHost(), mainServerId);
 		this.maze = maze;
-		this.playerList = players;
-		synchronized (syncPlayers) {
-			for (Player p : playerList) {
-				syncPlayers.put(p.getId(), p);
-			}
-		}
+		this.playerList = players; 
 		this.notifyAll();
+		pingThread = new Thread(new PingManager(mainServer));
+		pingThread.start();
 	}
 }
