@@ -8,7 +8,6 @@ import java.util.Scanner;
 
 import server.PrimaryServer;
 import server.Server;
-
 import common.Location;
 import common.Player;
 import common.PrimaryServerStub;
@@ -16,6 +15,7 @@ import common.Reply;
 import common.Reply.Direction;
 import common.Reply.Status;
 import common.ServerApi;
+import common.Timestamp;
 
 public class Client {
 
@@ -77,7 +77,7 @@ public class Client {
 		}
 		
 		if (player.getId() == 2) {
-			peerServer.initializeBackup(reply.getMaze(), players, 1);
+			peerServer.initializeBackup(reply.getMaze(), players, 1, null);
 		}
 
 		printMaze(reply.getMaze());
@@ -122,16 +122,17 @@ public class Client {
 		if (direction == null) {
 			System.out.println("Incorrect command");
 		} else {
-			Reply reply = playMove(direction);
+			Reply reply = playMove(direction, new Timestamp(player.getId()));
+			player = reply.getPlayer();
 			printMaze(reply.getMaze());
 			printStatus(reply.getStatus());
 		}
 	}
 
-	private static Reply playMove(Direction direction) {
+	private static Reply playMove(Direction direction, Timestamp t) {
 		Reply reply = null;
 		try {
-			reply = server.move(player.getId(), direction);
+			reply = server.move(player.getId(), direction, t);
 		} catch (RemoteException e) {
 			System.out.println("Could not contact server " + serverId + "...");
 			server = findNextPeer();
@@ -140,7 +141,7 @@ public class Client {
 				System.out.println("Dying...");
 				System.exit(0);
 			}
-			reply = playMove(direction);
+			reply = playMove(direction, t);
 		}
 		return reply;
 	}

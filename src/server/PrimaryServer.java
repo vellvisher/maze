@@ -36,7 +36,6 @@ public class PrimaryServer extends Server implements PrimaryServerStub {
 		super(1, n);
 		M = m;
 		initializeMaze();
-
 	}
 
 	public Reply joinGame() {

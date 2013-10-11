@@ -25,4 +25,7 @@ public class Location implements Serializable {
 	public void clearPlayer() {
 		this.player = null;
 	}
+	public String toString() {
+		return treasures + (player == null ? "empty" : player.toString());
+	}
 }

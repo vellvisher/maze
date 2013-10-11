@@ -1,6 +1,10 @@
 package common;
 
-public class Timestamp implements Comparable<Timestamp> {
+import java.io.Serializable;
+
+public class Timestamp implements Comparable<Timestamp>, Serializable {
+	private static final int MAX_CLIENTS = 1000;
+	private static final long serialVersionUID = -175054147849229102L;
 	private int id;
 	private long time;
 	
@@ -25,5 +29,15 @@ public class Timestamp implements Comparable<Timestamp> {
 		} else {
 			return Long.compare(this.time, t.time);
 		}
+	}
+	
+	@Override
+	public boolean equals(Object o) {
+		return o == null ? false : compareTo((Timestamp)o) == 0;
+	}
+	
+	@Override
+	public int hashCode() {
+		return (int) time*MAX_CLIENTS + id;
 	}
 }
