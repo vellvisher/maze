@@ -22,7 +22,7 @@ import common.ServerApi;
 public class PrimaryServer extends Server implements PrimaryServerStub {
 	private static final long serialVersionUID = 2562787482457362889L;
 
-	private static final int WAITING_PERIOD = 10000;
+	private static final int WAITING_PERIOD = 20000;
 
 	private AtomicInteger nextPlayerId = new AtomicInteger(1);
 	private AtomicBoolean joinEnd = new AtomicBoolean(false);

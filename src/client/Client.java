@@ -37,8 +37,8 @@ public class Client {
 
 		if (isPrimary) {
 			setNM(args);
-			PrimaryServer server = new PrimaryServer(N, M);
-			server.runServer();
+			PrimaryServer primaryServer = new PrimaryServer(N, M);
+			primaryServer.runServer();
 		}
 
 		scanner = new Scanner(System.in);
@@ -132,7 +132,7 @@ public class Client {
 	private static Reply playMove(Direction direction, Timestamp t) {
 		Reply reply = null;
 		try {
-			reply = server.move(player.getId(), direction, t);
+			reply = server.move(player.getId(), direction, t, false);
 		} catch (RemoteException e) {
 			System.out.println("Could not contact server " + serverId + "...");
 			server = findNextPeer();

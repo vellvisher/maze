@@ -6,7 +6,9 @@ import java.rmi.registry.LocateRegistry;
 import java.rmi.registry.Registry;
 import java.rmi.server.RemoteServer;
 import java.rmi.server.UnicastRemoteObject;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import common.Location;
 import common.Player;
@@ -14,6 +16,7 @@ import common.Reply;
 import common.Reply.Direction;
 import common.Reply.Status;
 import common.ServerApi;
+import common.Timestamp;
 
 public class Server extends RemoteServer implements ServerApi {
 	private static final long serialVersionUID = 3126187241824135686L;
@@ -30,6 +33,10 @@ public class Server extends RemoteServer implements ServerApi {
 
 	private Thread pingThread;
 
+	private Map<Timestamp, Reply> movesPlayed = new HashMap<Timestamp, Reply>();
+
+	private ServerApi mainServer;
+
 	class PingManager implements Runnable {
 		private static final long PING_FREQUENCY = 15000;
 		private ServerApi pingServer;
@@ -45,7 +52,10 @@ public class Server extends RemoteServer implements ServerApi {
 					return;
 				}
 			}
-			initializeRemoteBackup();
+			if (Thread.interrupted()) {
+				return;
+			}
+			pingThreadInitializeRemoteBackup(pingServer);
 		}
 	};
 	
@@ -64,7 +74,7 @@ public class Server extends RemoteServer implements ServerApi {
 	}
 
 	@Override
-	public Reply move(int id, Direction d) {
+	public Reply move(int id, Direction d, Timestamp timestamp, boolean backupMove) {
 		System.err.println("Player " + id + " wants to move " + d.toString());
 		synchronized (this) {
 			while (maze == null) {
@@ -87,32 +97,36 @@ public class Server extends RemoteServer implements ServerApi {
 		Reply reply;
 
 		synchronized (this) {
-			reply = new Reply(maze, player, playerList, movePlayer(player, d));	
+			reply = movePlayer(player, d, timestamp);
 			if (reply.getStatus() != Status.MOVE_SUCCESSFUL) {
 				return reply;
 			}
+			if (backupMove == true) {
+				return reply;
+			}
 			try {
-				backupServer.movePlayer(player, d);
+				backupServer.move(id, d, timestamp, true);
 			} catch (Exception e) {
 				initializeRemoteBackup();
-				try {
-					backupServer.movePlayer(player, d);
-				} catch (RemoteException e1) {
-					System.err.println("No backup server...");
-					System.exit(0);
-				}
 			}
 		}
 		return reply;
 	}
 
+	private synchronized void pingThreadInitializeRemoteBackup(ServerApi pingServer) {
+		if (backupServer != pingServer && mainServer != pingServer) {
+			return;
+		}
+		initializeRemoteBackup();
+	}
+	
 	private synchronized void initializeRemoteBackup() {
 		backupServer = findNextPeer();
 		try {
 			if (backupServer == null) {
 				throw new RemoteException();
 			}
-			backupServer.initializeBackup(maze, playerList, id);
+			backupServer.initializeBackup(maze, playerList, id, movesPlayed);
 			if (pingThread != null) {
 				pingThread.interrupt();
 			}
@@ -148,9 +162,17 @@ public class Server extends RemoteServer implements ServerApi {
 		}
 		return server;
 	}
+
+	public synchronized Reply movePlayer(Player p, Direction d, Timestamp t) {
+		if (movesPlayed.containsKey(t)) {
+			return movesPlayed.get(t);
+		}
+		Reply reply = new Reply(maze, p, playerList, moveWithStatus(p, d));
+		movesPlayed.put(t, reply);
+		return reply;
+	}
 	
-	@Override
-	public Status movePlayer(Player p, Direction d) {
+	private Status moveWithStatus(Player p, Direction d) {
 		int newX = p.getX(), newY = p.getY();
 		switch (d) {
 		case N:
@@ -223,11 +245,15 @@ public class Server extends RemoteServer implements ServerApi {
 	}
 
 	@Override
-	public synchronized void initializeBackup(Location[][] maze, List<Player> players, int mainServerId) {
+	public synchronized void initializeBackup(Location[][] maze, List<Player> players, int mainServerId, Map<Timestamp, Reply> movesPlayed) {
 		System.err.println("Initializing backup id:" + id);
-		final ServerApi mainServer = getServer(players.get(mainServerId).getHost(), mainServerId);
+		mainServer = getServer(players.get(mainServerId).getHost(), mainServerId);
 		this.maze = maze;
-		this.playerList = players; 
+		this.playerList = players;
+		this.movesPlayed = movesPlayed;
+		if (this.movesPlayed == null) {
+			this.movesPlayed = new HashMap<Timestamp, Reply>();
+		}
 		this.notifyAll();
 		pingThread = new Thread(new PingManager(mainServer));
 		pingThread.start();
